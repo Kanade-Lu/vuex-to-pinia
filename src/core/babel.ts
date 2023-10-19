@@ -56,13 +56,12 @@ export function traverseCode(code: string, id: string) {
               let key = ''
               if (t.isMemberExpression(item.key) && t.isIdentifier(item.key.property))
                  key = item.key.property.name
-    
               else if (t.isIdentifier(item.key))
                 key = item.key.name
               mutationsList[key] = {
                 params,
                 body: body.body,
-              }            
+              }
             }
           }
           else if (t.isObjectMethod(item)) {
@@ -159,63 +158,66 @@ export function traverseCode(code: string, id: string) {
         if (!target)
           return
         const { params, body } = target
-        body.forEach((item: t.ExpressionStatement) => {
-          if (!t.isAssignmentExpression(item.expression))
-            return
-          const right = item.expression.right
-          if (t.isMemberExpression(right) && t.isIdentifier(right.object) && typeof needToReplaceCode === 'string') {
-            if (right.object.name === params)
-              right.object.name = needToReplaceCode
-          }
-          if (t.isCallExpression(right)) {
-            if (t.isMemberExpression(right.callee) && typeof needToReplaceCode === 'string') {
-              if (t.isIdentifier(right.callee.object) && right.callee.object.name === params)
-                right.callee.object.name = needToReplaceCode
+        body.forEach((item: any) => {
+          if (t.isExpressionStatement(item) && t.isAssignmentExpression(item.expression)) {
+            const right = item.expression.right
+            if (t.isMemberExpression(right) && t.isIdentifier(right.object) && typeof needToReplaceCode === 'string') {
+              if (right.object.name === params)
+                right.object.name = needToReplaceCode
+            }
+            if (t.isCallExpression(right)) {
+              if (t.isMemberExpression(right.callee) && typeof needToReplaceCode === 'string') {
+                if (t.isIdentifier(right.callee.object) && right.callee.object.name === params)
+                  right.callee.object.name = needToReplaceCode
 
-              if (t.isMemberExpression(right.callee.object)) {
-                const object = right.callee.object
-                if (t.isIdentifier(object.object) && object.object.name === params)
-                  object.object.name = needToReplaceCode
-              }
-              if (t.isCallExpression(right.callee.object)) {
-                const object = right.callee.object
-                const rightCallObjectArguments = object.arguments
-                if (rightCallObjectArguments.length === 1) {
-                  if (t.isIdentifier(rightCallObjectArguments[0]) && rightCallObjectArguments[0].name === params)
-                    rightCallObjectArguments[0].name = needToReplaceCode
-                  if (t.isMemberExpression(rightCallObjectArguments[0]) && t.isIdentifier(rightCallObjectArguments[0].object) && typeof needToReplaceCode === 'string')
-                    rightCallObjectArguments[0].object.name = needToReplaceCode
+                if (t.isMemberExpression(right.callee.object)) {
+                  const object = right.callee.object
+                  if (t.isIdentifier(object.object) && object.object.name === params)
+                    object.object.name = needToReplaceCode
+                }
+                if (t.isCallExpression(right.callee.object)) {
+                  const object = right.callee.object
+                  const rightCallObjectArguments = object.arguments
+                  if (rightCallObjectArguments.length === 1) {
+                    if (t.isIdentifier(rightCallObjectArguments[0]) && rightCallObjectArguments[0].name === params)
+                      rightCallObjectArguments[0].name = needToReplaceCode
+                    if (t.isMemberExpression(rightCallObjectArguments[0]) && t.isIdentifier(rightCallObjectArguments[0].object) && typeof needToReplaceCode === 'string')
+                      rightCallObjectArguments[0].object.name = needToReplaceCode
+                  }
                 }
               }
             }
-          }
-          if (t.isLogicalExpression(right)) {
-            if (t.isMemberExpression(right.left) && typeof needToReplaceCode === 'string') {
-              if (t.isIdentifier(right.left.object) && right.left.object.name === params)
-                right.left.object.name = needToReplaceCode
+            if (t.isLogicalExpression(right)) {
+              if (t.isMemberExpression(right.left) && typeof needToReplaceCode === 'string') {
+                if (t.isIdentifier(right.left.object) && right.left.object.name === params)
+                  right.left.object.name = needToReplaceCode
+              }
             }
-          }
 
-          if (t.isConditionalExpression(right) && t.isIdentifier(right.test) && t.isMemberExpression(right.consequent) && typeof needToReplaceCode === 'string') {
-            right.test.name = needToReplaceCode
-            if (!t.isIdentifier(right.consequent.object))
-              return
-            right.consequent.object.name = needToReplaceCode
-          }
-          if (right.type === 'Identifier') {
-            if (typeof needToReplaceCode === 'string')
-              right.name = needToReplaceCode
+            if (t.isConditionalExpression(right) && t.isIdentifier(right.test) && t.isMemberExpression(right.consequent) && typeof needToReplaceCode === 'string') {
+              right.test.name = needToReplaceCode
+              if (!t.isIdentifier(right.consequent.object))
+                return
+              right.consequent.object.name = needToReplaceCode
+            }
+            if (right.type === 'Identifier') {
+              if (typeof needToReplaceCode === 'string')
+                right.name = needToReplaceCode
 
-            else if (typeof needToReplaceCode === 'boolean')
-              item.expression.right = t.booleanLiteral(needToReplaceCode)
-          }
-          const left = item.expression.left
+              else if (typeof needToReplaceCode === 'boolean')
+                item.expression.right = t.booleanLiteral(needToReplaceCode)
+            }
+            const left = item.expression.left
 
-          if (t.isMemberExpression(left)) {
-            if (t.isIdentifier(left.object) && stateNameList.includes(left.object.name))
-              left.object.name = 'this'
+            if (t.isMemberExpression(left)) {
+              if (t.isIdentifier(left.object) && stateNameList.includes(left.object.name))
+                left.object.name = 'this'
+            }
+            path.insertBefore(item)
           }
-          path.insertAfter(item)
+          else {
+            path.insertBefore(item)
+          }
         })
         path.remove()
       }
