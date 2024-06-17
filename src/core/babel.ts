@@ -11,15 +11,14 @@ const mutationsList: {
 } = {}
 const stateNameList = ['state', 'state2']
 
-function getFullMemberExpression(node: t.MemberExpression): string {
+function getFullMemberExpression(node: t.MemberExpression | t.OptionalMemberExpression): string {
   const nodeObject = node.object
-  const propety = node.property
-  if (t.isIdentifier(nodeObject) && t.isIdentifier(propety))
-    return `${nodeObject.name}.${propety.name}`
+  const property = node.property
+  if (t.isIdentifier(nodeObject) && t.isIdentifier(property))
+    return `${nodeObject.name}.${property.name}`
 
-  if (t.isMemberExpression(nodeObject) && t.isIdentifier(propety))
-    return `${getFullMemberExpression(nodeObject)}.${propety.name}`
-
+  if ((t.isMemberExpression(nodeObject) || t.isOptionalMemberExpression(nodeObject)) && t.isIdentifier(property))
+    return `${getFullMemberExpression(nodeObject)}.${property.name}`
   console.error('getFullMemberExpression: 未知类型')
   return ''
 }
@@ -168,6 +167,7 @@ export function traverseCode(code: string, id: string = 'nameSpaced') {
           switch (needReplace.type) {
             case 'Identifier':
               return needReplace.name
+            case 'OptionalMemberExpression':
             case 'MemberExpression':
               // return `${(needReplace.object as t.Identifier).name}.${(needReplace.property as t.Identifier).name}`
               return getFullMemberExpression(needReplace)
