@@ -22,9 +22,10 @@
     "esm": true
   },
   "include": [
-    "src/**/*.ts",
+    "src/core/*.ts",
+    "src/index.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
   ]
 }
