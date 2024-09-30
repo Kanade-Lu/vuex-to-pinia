@@ -1,7 +1,7 @@
 import { parse } from '@babel/parser'
-import { traverse } from '@babel/core'
+import { NodePath, traverse } from '@babel/core'
 import * as generator from '@babel/generator'
-import t, { objectExpression } from '@babel/types'
+import t, { objectExpression, Program } from '@babel/types'
 
 const mutationsList: {
   [key: string]: {
@@ -332,50 +332,72 @@ export function traverseCode(code: string, id: string = 'nameSpaced') {
     },
   })
 
+  const storeName = id.split('/').pop()?.replace('.ts', '') as string
+  const useStoreName = t.identifier(
+    `use${
+      storeName.charAt(0).toUpperCase() + storeName.slice(1)
+    }Store`,
+  )
+  const createStore = (path: NodePath<t.Program>) => {
+
+    /**
+     * export const useAllAccountsStore = defineStore({
+          id: "allAccounts",
+          state: (): State => ({
+            storeList: [],
+            // 通用门店列表
+            auctionPlatformList: [] // 拍卖平台列表
+          }),
+          actions: {}
+        })
+     */
+    const stateResult = t.arrowFunctionExpression([], state)
+    if (stateTypeName) {
+      stateResult.returnType = t.tsTypeAnnotation(
+        t.tsTypeReference(t.identifier(stateTypeName)),
+      )
+    }
+
+    path.node.body.push(
+      t.exportNamedDeclaration(
+        t.variableDeclaration('const', [
+          t.variableDeclarator(
+            useStoreName,
+            t.callExpression(t.identifier('defineStore'), [
+              t.objectExpression([
+                t.objectProperty(
+                  t.identifier('id'),
+                  t.stringLiteral(storeName),
+                ),
+                t.objectProperty(t.identifier('state'), stateResult),
+                t.objectProperty(t.identifier('actions'), actions),
+              ]),
+            ]),
+          ),
+        ]),
+      ),
+    )
+  }
+  const addHMR = (path: NodePath<t.Program>) => {
+    const hotCondition = t.memberExpression(t.memberExpression(t.identifier('import'), t.identifier('meta')), t.identifier('hot'));
+    const hotAccept = t.callExpression(t.memberExpression(hotCondition, t.identifier('accept')), [
+      t.callExpression(t.identifier('acceptHMRUpdate'), [useStoreName, hotCondition])
+    ]);
+    const hotIfStatement = t.ifStatement(hotCondition, t.blockStatement([t.expressionStatement(hotAccept)]));
+    path.node.body.push(hotIfStatement);
+  }
+  const importAcceptHMRUpdate = (path: NodePath<t.Program>) => {
+    path.node.body.unshift(t.importDeclaration(
+      [t.importSpecifier(t.identifier('acceptHMRUpdate'), t.identifier('acceptHMRUpdate'))],
+      t.stringLiteral('pinia')
+    ))
+  }
+
   traverse(ast, {
     Program(path) {
-      const storeName = id.split('/').pop()?.replace('.ts', '') as string
-      /**
-       * export const useAllAccountsStore = defineStore({
-            id: "allAccounts",
-            state: (): State => ({
-              storeList: [],
-              // 通用门店列表
-              auctionPlatformList: [] // 拍卖平台列表
-            }),
-            actions: {}
-          })
-       */
-      const stateResult = t.arrowFunctionExpression([], state)
-      if (stateTypeName) {
-        stateResult.returnType = t.tsTypeAnnotation(
-          t.tsTypeReference(t.identifier(stateTypeName)),
-        )
-      }
-
-      path.node.body.push(
-        t.exportNamedDeclaration(
-          t.variableDeclaration('const', [
-            t.variableDeclarator(
-              t.identifier(
-                `use${
-                  storeName.charAt(0).toUpperCase() + storeName.slice(1)
-                }Store`,
-              ),
-              t.callExpression(t.identifier('defineStore'), [
-                t.objectExpression([
-                  t.objectProperty(
-                    t.identifier('id'),
-                    t.stringLiteral(storeName),
-                  ),
-                  t.objectProperty(t.identifier('state'), stateResult),
-                  t.objectProperty(t.identifier('actions'), actions),
-                ]),
-              ]),
-            ),
-          ]),
-        ),
-      )
+      createStore(path)
+      addHMR(path)
+      importAcceptHMRUpdate(path)
     },
   })
 
