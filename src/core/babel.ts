@@ -15,10 +15,11 @@ function getFullMemberExpression(node: t.MemberExpression | t.OptionalMemberExpr
   const nodeObject = node.object
   const property = node.property
   if (t.isIdentifier(nodeObject) && t.isIdentifier(property))
-    return `${nodeObject.name}.${property.name}`
+    return `${nodeObject.name}${t.isOptionalMemberExpression(node) ? '?' : ''}.${property.name}`
 
-  if ((t.isMemberExpression(nodeObject) || t.isOptionalMemberExpression(nodeObject)) && t.isIdentifier(property))
-    return `${getFullMemberExpression(nodeObject)}.${property.name}`
+  if ((t.isMemberExpression(nodeObject) || t.isOptionalMemberExpression(nodeObject)) && t.isIdentifier(property)) {
+    return `${getFullMemberExpression(nodeObject)}${t.isOptionalMemberExpression(nodeObject) ? '?' : ''}.${property.name}`
+  }
   console.error('getFullMemberExpression: 未知类型')
   return ''
 }
@@ -378,12 +379,18 @@ export function traverseCode(code: string, id: string = 'nameSpaced') {
       ),
     )
   }
+  const addComment = (node: any) => {
+    t.addComment(node, 'leading', ' @ts-ignore ')
+  }
   const addHMR = (path: NodePath<t.Program>) => {
     const hotCondition = t.memberExpression(t.memberExpression(t.identifier('import'), t.identifier('meta')), t.identifier('hot'));
+    addComment(hotCondition)
     const hotAccept = t.callExpression(t.memberExpression(hotCondition, t.identifier('accept')), [
       t.callExpression(t.identifier('acceptHMRUpdate'), [useStoreName, hotCondition])
     ]);
+    addComment(hotAccept)
     const hotIfStatement = t.ifStatement(hotCondition, t.blockStatement([t.expressionStatement(hotAccept)]));
+    addComment(hotIfStatement)
     path.node.body.push(hotIfStatement);
   }
   const importAcceptHMRUpdate = (path: NodePath<t.Program>) => {
